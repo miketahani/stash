@@ -1,0 +1,25 @@
+{
+  "name": "stash",
+  "version": "0.0.1",
+  "description": "ultra simple tile cache",
+  "main": "stash.js",
+  "dependencies": {
+    "express": "^4.12.3",
+    "mkdirp": "^0.5.0",
+    "request": "^2.54.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/miketahani/stash.git"
+  },
+  "author": "mike tahani",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/miketahani/stash/issues"
+  },
+  "homepage": "https://github.com/miketahani/stash"
+}
