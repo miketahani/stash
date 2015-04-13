@@ -22,7 +22,7 @@ app.get('/stash/:href(*)', function (req, res) {
   // parse out parts of the url to make a request
   var tileUrl = req.params.href;
   var parsed = tileUrl
-    .match(/(.+)\/(\w+)\/(\d+)\/(\d+)\/(\d+)\.(\w+)$/)
+    .match(/(.+)\/(\w+)\/(\d+)\/(\d+)\/([\d@x]+)\.(\w+)/)
     .slice(1, 7);
 
   var dir = CACHE_DIR + parsed.slice(1, 4).join('/'),
