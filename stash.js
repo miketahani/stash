@@ -5,7 +5,7 @@
    (tile URLs look like `http://example.com/{layer}/{z}/{x}/{y}.png`)
 */
 
-var CACHE_DIR = './tile-cache/',
+var CACHE_DIR = './tiles/',
     PORT = 7357;
 
 var fs = require('fs'),
@@ -42,7 +42,9 @@ app.get('/stash/:href(*)', function (req, res) {
         if (err) { console.log('[x] ERROR creating directory: ' + dir); }
         // request the remote tile
         console.log('[*] getting tile: ' + tileUrl);
-        var tile = request(tileUrl);
+        // NOTE: the querystring was added for grabbing mapbox studio tiles, but could have an
+        // adverse effect if you're not stacking urls-as-querystrings
+        var tile = request(tileUrl + req._parsedUrl.search);
         // FIXME is this async?
         tile.pipe(fs.createWriteStream(tilePath));
         tile.pipe(res);
@@ -50,7 +52,6 @@ app.get('/stash/:href(*)', function (req, res) {
     
     }
   });
-  
 });
 
 var server = app.listen(PORT, function () {
