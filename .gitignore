@@ -1,3 +1,6 @@
 .DS_Store
 build/
+tile-cache/**/
+node_modules/
+package-lock.json
 
