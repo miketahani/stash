@@ -68,7 +68,7 @@ app.get('/stash/:href(*)', async (req, res) => {
 
   const resource = Resource[resourceType] || Resource.default;
   const localPath = resource.getLocalPath(href);
-  const { dir } = localPath;
+  const { dir, url } = localPath;
   const filepath = path.join(localPath.dir, localPath.filename);
 
   try {
