@@ -1,56 +1,92 @@
-/*
-   stash tiles while you're exploring them in a map.
-   on a frontend map, just prefix your tile layer URL with 'http://localhost:7357/stash/' and
-   requests will get routed through this lil server, which will save the tiles in standard slippy-format.
-   (tile URLs look like `http://example.com/{layer}/{z}/{x}/{y}.png`)
-*/
-import fs from 'fs';
+// Simple proxy to cache/store data. Special handling for map tiles to store them
+// in the layer/z/x/y directory format. WARNING This is a one-off tool, so expect
+// it to fail loudly.
+// To use, prefix clientside outbound URLs with `http://localhost:7357/stash/`
+// (make sure to URL-encode the tile URL) and add `?type=tile` as a suffix
+// if you're fetching tiles.
+import fs, { promises as fsp } from 'fs';
 import express from 'express';
 import request from 'request';
-import mkdirp from 'mkdirp';
 import cors from 'cors'
+import path from 'path'
 
-const CACHE_DIR = './tile-cache/';
+const CACHE_DIR = './cache';
 const PORT = 7357;
 
 const app = express();
 app.use(cors())
 
-app.get('/stash/:href(*)', function (req, res) {
-
-  // parse out parts of the url to make a request
-  const tileUrl = req.params.href;
-  const parsed = tileUrl
-    .match(/(.+)\/(\w+)\/(\d+)\/(\d+)\/([\d@x]+)\.(\w+)/)
-    .slice(1, 7);
-
-  const dir = CACHE_DIR + parsed.slice(1, 4).join('/')
-  const tileFile = parsed[4] + '.' + parsed[5]
-  const tilePath = dir + '/' + tileFile
-
-  // check if the tile exists, else, grab it
-  fs.stat(tilePath, function (err, stats) {
-
-    if (!err && stats.isFile()) {
-      console.log('[*] tile in cache: ' + tileFile);
-      fs.createReadStream(tilePath).pipe(res);
-    } else {
-      // create the directory structure if it doesn't exist
-      mkdirp(dir, function (err) {
-        if (err) { console.log('[x] ERROR creating directory: ' + dir); }
-        // request the remote tile
-        console.log('[*] getting tile: ' + tileUrl);
-        const tile = request(tileUrl);
-        tile.pipe(fs.createWriteStream(tilePath));
-        tile.pipe(res);
-      });
-
+// Bit of premature optimization to make it easier to add special handling
+// in the future
+const Resource = {
+  tile: {
+    getLocalPath(url) {
+      const parsed = url
+        .match(/(.+)\/(\w+)\/(\d+)\/(\d+)\/([\d@x]+)\.(\w+)/)
+        .slice(1, 7)
+      const [, layer, z, x, y, ext] = parsed
+      return {
+        url,
+        parsed: { layer, z, x, y, ext },
+        dir: path.join(CACHE_DIR, layer, z, x),
+        filename: `${y}.${ext}`,
+      }
+    },
+    log: {
+      exists: ({ parsed: { layer, z, x, y, ext } }) => {
+        const tile = [layer, z, x, y].join('/')
+        console.log(`[!] tile in cache: ${tile}.${ext}`)
+      },
+      missing: ({ url }) => {
+        console.log(`[+] retrieving tile: ${url}`)
+      }
     }
-  });
+  },
+  default: {
+    getLocalPath(url) {
+      const filename = atob(url)
+      return {
+        url,
+        dir: CACHE_DIR,
+        filename,
+      }
+    },
+    log: {
+      exists: ({ url }) => {
+        console.log(`[!] resource in cache: ${url}`)
+      },
+      missing: ({ url }) => {
+        console.log(`[+] retrieving resource: ${url}`)
+      }
+    }
+  }
+}
 
+app.get('/stash/:href(*)', async (req, res) => {
+  const href = req.params.href;
+  const resourceType = req.query.type;
+
+  const resource = Resource[resourceType] || Resource.default;
+  const localPath = resource.getLocalPath(href);
+  const { dir } = localPath;
+  const filepath = path.join(localPath.dir, localPath.filename);
+
+  try {
+    await fsp.stat(filepath)
+    resource.log.exists(localPath)
+    fs.createReadStream(filepath).pipe(res);
+  } catch (e) {
+    resource.log.missing(localPath)
+    await fsp.mkdir(dir, { recursive: true })
+    const recv = request(url);
+    // Write local cache
+    recv.pipe(fs.createWriteStream(filepath));
+    // Send response
+    recv.pipe(res);
+  }
 });
 
-const server = app.listen(PORT, function () {
+const server = app.listen(PORT, () => {
   const host = server.address().address;
   const port = server.address().port;
   console.log('[*] app started on %s:%s', host, port);
