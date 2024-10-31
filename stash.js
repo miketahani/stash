@@ -44,9 +44,12 @@ const Resource = {
   },
   default: {
     getLocalPath(url) {
-      const filename = atob(url)
+      const ext = url.match(/\.(\w+)$/)?.[1];
+      const encoded = btoa(url);
+      const filename = ext ? `${encoded}.${ext}` : encoded;
       return {
         url,
+        parsed: { ext },
         dir: CACHE_DIR,
         filename,
       }
